@@ -1,16 +1,19 @@
 ---
 title: "Working with USGS Data and Functions"
-author: "Matthew Ross"
+author: "Alex Olsen-Mikitowicz"
 date: "10/7/2019"
 output: html_document
+editor_options: 
+  chunk_output_type: console
 ---
 
-```{r setup, include=FALSE}
+```{r setup, include=FALSE, warning=FALSE}
 library(tidyverse)
 library(dataRetrieval)
 library(dygraphs) #Time series plotting
 library(tidyr) 
 library(xts) #Time series objects
+library(ggthemes)
 
 knitr::opts_chunk$set(echo = TRUE)
 ```
@@ -87,7 +90,7 @@ ggplot(combo_data,aes(x=Date,y=q_cfs,color=site)) +
 
 ### Density plot 
 
-```{r}
+```{r,  warning=FALSE}
 ggplot(combo_data,aes(x=q_cfs,color=site)) +
   geom_density() +
   scale_x_log10()
@@ -122,7 +125,7 @@ xts_maker <- function(df){
     spread(key=site,value = q_cfs)
 
   wide_xts <- xts(wide_data %>%
-                  select(-Date),
+                 select(-Date),
                 order.by = wide_data$Date)
   
   return(wide_xts)
@@ -132,7 +135,6 @@ xts_maker <- function(df){
 
 wide_xts <- xts_maker(combo_data)
 wide_elc <- xts_maker(elc_q)
-
 
 dygraph(wide_xts)
 dygraph(wide_elc)
@@ -154,6 +156,17 @@ plot). Please plot the `combo_data` dataset here.
 
 ```{r}
 
+q_grapher <- function(data_to_plot){
+  p1 <- ggplot(data_to_plot,
+               aes( x = Date, y = q_cfs, color = site))+
+    geom_line()+
+    theme_few()
+
+  return(p1)
+}
+
+
+q_grapher(combo_data)
 ```
 
 
@@ -166,6 +179,26 @@ Even if your function call works, why is my function "brittle?"
 Hint: hardcoding `q_cfs = X_00060_00003` could be dangerous
 
 ```{r}
+
+q_downloader <- function(site_no,
+                         site_id){
+  df <- readNWISdv(site_no, 
+                   parameterCd = '00060',
+                   startDate = '1950-10-01',
+                   endDate = '2019-10-01') %>%
+  rename(q_cfs = 4,
+         q_cd = 5) %>%
+    mutate(site = site_id)
+  return(df)
+}
+
+q_riog_cerro <- q_downloader(site_no = "08263500",
+                             site_id = "cerro_upper")
+
+q_riog_embudo <- q_downloader(site_no = "08279500",
+                             site_id = "embudo_lower")
+
+combo_data_rio <- bind_rows(q_riog_cerro , q_riog_embudo)
 
 ```
 
@@ -180,6 +213,31 @@ to write a function that joins your two USGS datasets by calling one of the fami
 Hint: be careful of having two `site` columns. 
 
 ```{r}
+#Here is where matt and I got stuck
+#Primer question 1: can you explain what an expression is and how an expression that starts with ~ is different
+#Previously when piping I would call a function on a lower line and have to use (.) as a placeholder for the dataframe or object, from the primer I can run code that looks like this: parameters %>% pmap(rnorm)
+#Primer Q 2: what is the difference between class and attribute
+#Primer Q 3: Can we talk about the difference between lists, dataframes, and tibbles
+#Primer Q 4: Difference between recursive vector and non-recursive vector - difference between lists and vectors
+#Primer Q5: basically what is the nature of column lists
+
+
+xts_maker <- function(df){
+  wide_data_rio <- df %>%
+    select(-agency_cd,-site_no,-q_cd) %>%
+    spread(key=site,value = q_cfs)
+
+  wide_xts_rio <- xts(wide_data_rio %>%
+                 select(-Date),
+                order.by = wide_data_rio$Date)
+  
+  return(wide_xts_rio)
+  
+}
+
+
+wide_xts_rio <- xts_maker(combo_data_rio)
+
 
 ```
 
@@ -191,6 +249,23 @@ a dygraph. Here, I want you to make a similar function that preps *and* plots a 
 
 
 ```{r}
+
+xts_plotter <- function(df){
+  wide_data_rio <- df %>%
+    select(-agency_cd,-site_no,-q_cd) %>%
+    spread(key=site,value = q_cfs)
+
+  wide_xts_rio <- xts(wide_data_rio %>%
+                 select(-Date),
+                order.by = wide_data_rio$Date)
+  
+  dygraph(wide_xts_rio)
+  
+}
+
+
+xts_plotter(combo_data_rio)
+
 
 ```
 
